@@ -42,9 +42,28 @@ export function writeTopic(
   ensureDir(topicsDir);
   const filePath = path.join(topicsDir, `${name}.md`);
 
-  const body = `---\ndescription: "${description.replace(/"/g, '\\"')}"\n---\n\n${content}\n`;
+  const escapedDesc = description.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ");
+  const body = `---\ndescription: "${escapedDesc}"\n---\n\n${content}\n`;
   writeFile(filePath, body);
 
+  return filePath;
+}
+
+export function appendToTopic(
+  memoryDir: string,
+  name: string,
+  content: string,
+): string {
+  const topicsDir = path.join(memoryDir, TOPICS_DIR);
+  const filePath = path.join(topicsDir, `${name}.md`);
+
+  const existing = readWithMtime(filePath);
+  if (existing) {
+    const updated = existing.trimEnd() + "\n\n" + content + "\n";
+    writeFile(filePath, updated);
+  } else {
+    writeTopic(memoryDir, name, content.slice(0, 200), content);
+  }
   return filePath;
 }
 

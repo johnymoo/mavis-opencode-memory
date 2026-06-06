@@ -9,7 +9,7 @@ import {
 import type { MemoryEntry, MemoryParseResult, ClassifiedEntry, CleanupResult } from "./types.js";
 import { parseMemoryMd } from "./parser.js";
 import { readWithMtime, writeFile, snapshotDir, ensureDir } from "./files.js";
-import { writeTopic, enforceTopicLimits } from "./topics.js";
+import { writeTopic, appendToTopic, enforceTopicLimits } from "./topics.js";
 import { generateSummary } from "./summary.js";
 import { MEMORY_FILENAME, SUMMARY_FILENAME, TOPICS_DIR } from "./constants.js";
 
@@ -28,11 +28,11 @@ export function classifyEntries(
     let classification: ClassifiedEntry["classification"] = "HOT";
     let topicName: string | undefined;
 
-    if (score >= 5 || (underPressure && score >= 3)) {
+    if (underPressure && score >= 2 && entry.ageDays > 14 && entry.byteSize <= 1024) {
+      classification = "ARCHIVE";
+    } else if (score >= 5 || (underPressure && score >= 3)) {
       classification = "TOPIC";
       topicName = deriveTopicName(entry.title);
-    } else if (underPressure && score >= 2 && entry.ageDays > 14) {
-      classification = "ARCHIVE";
     }
 
     return { entry, classification, score, topicName };
@@ -126,7 +126,7 @@ export function runCleanup(
     switch (item.classification) {
       case "TOPIC":
         if (item.topicName) {
-          writeTopic(memoryDir, item.topicName, item.entry.content.slice(0, 200), buildTopicContent(item.entry));
+          appendToTopic(memoryDir, item.topicName, buildTopicContent(item.entry));
           movedToTopic++;
         }
         break;
@@ -152,8 +152,9 @@ export function runCleanup(
   const newContent = buildMemoryMd(parsed.preamble, kept.map((c) => c.entry));
   writeFile(memoryPath, newContent);
 
-  // Regenerate summary
-  const summary = generateSummary(agentName, kept.map((c) => c.entry));
+  // Regenerate summary with fresh line numbers from rebuilt MEMORY.md
+  const reparsed = parseMemoryMd(newContent);
+  const summary = generateSummary(agentName, reparsed.entries);
   writeFile(path.join(memoryDir, SUMMARY_FILENAME), summary);
 
   // Enforce topic limits

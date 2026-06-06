@@ -24,7 +24,7 @@ export function makeAppendTool(baseDir: string, agentFromCtx: (ctx: any) => stri
       `Format: "## {title} ({date})\\nType: {type}\\n{content}". ` +
       `Do NOT use for transient state or raw logs.`,
     args: {
-      title: z.string().describe("Short descriptive title (include date in parentheses)"),
+      title: z.string().describe("Short descriptive title (date is added automatically)"),
       type: z
         .enum(["gotcha", "pattern", "workflow", "problem", "reference"])
         .describe("Category of this memory entry"),

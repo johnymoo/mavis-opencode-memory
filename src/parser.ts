@@ -90,9 +90,11 @@ export function parseTopicFrontmatter(raw: string): { description: string; body:
 
   const frontmatter = match[1];
   const body = match[2];
-  const descMatch = frontmatter.match(/^description:\s*["']?(.+?)["']?\s*$/m);
+  const descMatch = frontmatter.match(/^description:\s*"(.*)"\s*$/m)
+    ?? frontmatter.match(/^description:\s*(.+)\s*$/m);
+  const rawDesc = descMatch?.[1]?.trim() ?? "";
   return {
-    description: descMatch?.[1]?.trim() ?? "",
+    description: rawDesc.replace(/\\(.)/g, "$1"),
     body: body.trim(),
   };
 }

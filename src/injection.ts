@@ -3,6 +3,24 @@ import { TAIL_CAP_CHARS, SUMMARY_CAP_CHARS, MEMORY_FILENAME, SUMMARY_FILENAME } 
 import { readWithMtime } from "./files.js";
 import { listTopics } from "./topics.js";
 
+function byteLength(s: string): number {
+  return Buffer.byteLength(s, "utf-8");
+}
+
+function sliceByBytes(s: string, maxBytes: number): string {
+  if (byteLength(s) <= maxBytes) return s;
+  let end = Math.floor(maxBytes * s.length / byteLength(s));
+  while (end > 0 && byteLength(s.slice(0, end)) > maxBytes) end--;
+  return s.slice(0, end);
+}
+
+function sliceByBytesTail(s: string, maxBytes: number): string {
+  if (byteLength(s) <= maxBytes) return s;
+  let start = Math.floor(s.length * (1 - maxBytes / byteLength(s)));
+  while (start < s.length && byteLength(s.slice(start)) > maxBytes) start++;
+  return s.slice(start);
+}
+
 export function buildMemoryInjection(memoryDir: string): string[] {
   const blocks: string[] = [];
 
@@ -10,25 +28,23 @@ export function buildMemoryInjection(memoryDir: string): string[] {
   const memoryContent = readWithMtime(memoryPath);
 
   if (memoryContent && memoryContent.trim()) {
-    const contentLen = memoryContent.length;
+    const contentBytes = byteLength(memoryContent);
 
-    if (contentLen <= TAIL_CAP_CHARS) {
+    if (contentBytes <= TAIL_CAP_CHARS) {
       blocks.push(buildTailBlock(memoryContent));
     } else {
       const summaryPath = path.join(memoryDir, SUMMARY_FILENAME);
       const summaryContent = readWithMtime(summaryPath);
 
       if (summaryContent && summaryContent.trim()) {
-        const truncated = summaryContent.length > SUMMARY_CAP_CHARS
-          ? summaryContent.slice(0, SUMMARY_CAP_CHARS)
-          : summaryContent;
+        const truncated = sliceByBytes(summaryContent, SUMMARY_CAP_CHARS);
         blocks.push(buildSummaryBlock(truncated));
       }
 
-      const tail = memoryContent.slice(-TAIL_CAP_CHARS);
+      const tail = sliceByBytesTail(memoryContent, TAIL_CAP_CHARS);
       blocks.push(buildTailBlock(tail));
 
-      if (!summaryContent && contentLen > TAIL_CAP_CHARS) {
+      if (!summaryContent && contentBytes > TAIL_CAP_CHARS) {
         blocks.push(
           `<memory_note>Older entries are not shown. Read MEMORY.md for full history, ` +
           `or run memory-cleanup to generate a compressed index.</memory_note>`
@@ -43,6 +59,14 @@ export function buildMemoryInjection(memoryDir: string): string[] {
   }
 
   return blocks;
+}
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function buildTailBlock(content: string): string {
@@ -60,7 +84,7 @@ interface TopicInfo {
 
 function buildTopicsBlock(topics: TopicInfo[]): string {
   const lines = topics.map(
-    (t) => `  <topic name="${t.name}">${t.description}</topic>`
+    (t) => `  <topic name="${escapeXml(t.name)}">${escapeXml(t.description)}</topic>`
   );
   return (
     `<available_memory_topics>\n` +

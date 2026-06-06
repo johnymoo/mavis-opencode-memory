@@ -1,0 +1,21 @@
+{
+  "name": "opencode-memory-plugin",
+  "version": "1.0.0",
+  "description": "Three-layer memory system for OpenCode agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.14.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.14.28",
+    "@types/node": "^25.9.2",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
